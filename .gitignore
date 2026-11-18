@@ -1,0 +1,17 @@
+# 환경/의존성
+.env
+.venv/
+__pycache__/
+node_modules/
+.DS_Store
+
+# 빌드 산출물
+frontend/dist/
+
+# 생성된 리포트
+backend/generated_reports/*
+!backend/generated_reports/.gitkeep
+
+# 지식베이스 문서(pdf, md, txt, xlsx)와 벡터 DB는 저장소에서 제외하고 폴더만 유지
+backend/knowledge_base/*
+!backend/knowledge_base/.gitkeep

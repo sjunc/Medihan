@@ -1,0 +1,188 @@
+{
+  "source": "knowledge_base/01_nhis_general_checkup_criteria.md (국민건강보험공단 일반건강검진 판정기준)",
+  "metrics": {
+    "blood_pressure": {
+      "item": "혈압(수축기/이완기)",
+      "inputs": ["systolic_bp", "diastolic_bp"],
+      "value_format": "{systolic_bp}/{diastolic_bp}",
+      "unit": "mmHg",
+      "reference": "120 미만 / 80 미만",
+      "bands": [
+        {"status": "질환의심(고혈압)", "severity": "high", "recommend": ["내과", "순환기내과", "가정의학과"], "confirm_exam": "고혈압",
+         "any": [{"input": "systolic_bp", "gte": 140}, {"input": "diastolic_bp", "gte": 90}]},
+        {"status": "정상B(경계)", "severity": "warning", "recommend": ["가정의학과", "내과"],
+         "any": [{"input": "systolic_bp", "gte": 120}, {"input": "diastolic_bp", "gte": 80}]},
+        {"status": "정상A", "severity": "normal"}
+      ]
+    },
+    "fasting_glucose": {
+      "item": "공복혈당",
+      "inputs": ["fasting_glucose"],
+      "unit": "mg/dL",
+      "reference": "100 미만",
+      "bands": [
+        {"status": "질환의심(당뇨)", "severity": "high", "recommend": ["내분비내과", "내과", "가정의학과"], "confirm_exam": "당뇨병",
+         "any": [{"input": "fasting_glucose", "gte": 126}]},
+        {"status": "정상B(경계)", "severity": "warning", "recommend": ["내분비내과", "가정의학과"],
+         "any": [{"input": "fasting_glucose", "gte": 100}]},
+        {"status": "정상A", "severity": "normal"}
+      ]
+    },
+    "total_cholesterol": {
+      "item": "총콜레스테롤",
+      "inputs": ["total_cholesterol"],
+      "unit": "mg/dL",
+      "reference": "200 미만",
+      "bands": [
+        {"status": "질환의심", "severity": "high", "recommend": ["내과", "순환기내과", "내분비내과"],
+         "any": [{"input": "total_cholesterol", "gte": 240}]},
+        {"status": "정상B(경계)", "severity": "warning", "recommend": ["가정의학과", "내과"],
+         "any": [{"input": "total_cholesterol", "gte": 200}]},
+        {"status": "정상A", "severity": "normal"}
+      ]
+    },
+    "ldl_cholesterol": {
+      "item": "LDL 콜레스테롤",
+      "inputs": ["ldl_cholesterol"],
+      "unit": "mg/dL",
+      "reference": "130 미만",
+      "bands": [
+        {"status": "질환의심", "severity": "high", "recommend": ["내과", "순환기내과", "내분비내과"],
+         "any": [{"input": "ldl_cholesterol", "gte": 160}]},
+        {"status": "정상B(경계)", "severity": "warning", "recommend": ["가정의학과", "내과"],
+         "any": [{"input": "ldl_cholesterol", "gte": 130}]},
+        {"status": "정상A", "severity": "normal"}
+      ]
+    },
+    "hdl_cholesterol": {
+      "item": "HDL 콜레스테롤",
+      "inputs": ["hdl_cholesterol"],
+      "unit": "mg/dL",
+      "reference": "60 이상",
+      "bands": [
+        {"status": "낮음(주의)", "severity": "warning", "recommend": ["가정의학과", "내과"],
+         "any": [{"input": "hdl_cholesterol", "lt": 40}]},
+        {"status": "정상B(경계)", "severity": "warning", "recommend": ["가정의학과", "내과"],
+         "any": [{"input": "hdl_cholesterol", "lt": 60}]},
+        {"status": "정상A", "severity": "normal"}
+      ]
+    },
+    "triglycerides": {
+      "item": "중성지방",
+      "inputs": ["triglycerides"],
+      "unit": "mg/dL",
+      "reference": "150 미만",
+      "bands": [
+        {"status": "질환의심", "severity": "high", "recommend": ["내과", "순환기내과", "내분비내과"],
+         "any": [{"input": "triglycerides", "gte": 200}]},
+        {"status": "정상B(경계)", "severity": "warning", "recommend": ["가정의학과", "내과"],
+         "any": [{"input": "triglycerides", "gte": 150}]},
+        {"status": "정상A", "severity": "normal"}
+      ]
+    },
+    "ast": {
+      "item": "AST (SGOT)",
+      "inputs": ["ast"],
+      "unit": "U/L",
+      "reference": "40 이하",
+      "bands": [
+        {"status": "질환의심(간수치)", "severity": "high", "recommend": ["소화기내과", "내과"],
+         "any": [{"input": "ast", "gte": 51}]},
+        {"status": "정상B(경계)", "severity": "warning", "recommend": ["소화기내과", "가정의학과"],
+         "any": [{"input": "ast", "gte": 41}]},
+        {"status": "정상A", "severity": "normal"}
+      ]
+    },
+    "alt": {
+      "item": "ALT (SGPT)",
+      "inputs": ["alt"],
+      "unit": "U/L",
+      "reference": "35 이하",
+      "bands": [
+        {"status": "질환의심(간수치)", "severity": "high", "recommend": ["소화기내과", "내과"],
+         "any": [{"input": "alt", "gte": 46}]},
+        {"status": "정상B(경계)", "severity": "warning", "recommend": ["소화기내과", "가정의학과"],
+         "any": [{"input": "alt", "gte": 36}]},
+        {"status": "정상A", "severity": "normal"}
+      ]
+    },
+    "ggt": {
+      "item": "감마지티피 (r-GTP)",
+      "inputs": ["ggt"],
+      "unit": "U/L",
+      "reference": "남 63 이하 / 여 35 이하",
+      "bands": [
+        {"status": "질환의심", "severity": "high", "recommend": ["소화기내과", "내과"],
+         "any": [{"input": "ggt", "gte": 78}]},
+        {"status": "정상B(경계)", "severity": "warning", "recommend": ["소화기내과", "가정의학과"],
+         "any": [{"input": "ggt", "gte": 64}]},
+        {"status": "정상A", "severity": "normal"}
+      ],
+      "by_gender": {
+        "male": {"reference": "63 이하(남)"},
+        "female": {
+          "reference": "35 이하(여)",
+          "bands": [
+            {"status": "질환의심", "severity": "high", "recommend": ["소화기내과", "내과"],
+             "any": [{"input": "ggt", "gte": 46}]},
+            {"status": "정상B(경계)", "severity": "warning", "recommend": ["소화기내과", "가정의학과"],
+             "any": [{"input": "ggt", "gte": 36}]},
+            {"status": "정상A", "severity": "normal"}
+          ]
+        }
+      }
+    },
+    "egfr": {
+      "item": "신사구체여과율 (eGFR)",
+      "inputs": ["egfr"],
+      "unit": "mL/min",
+      "reference": "60 이상",
+      "bands": [
+        {"status": "질환의심(신장)", "severity": "high", "recommend": ["신장내과", "내과"],
+         "any": [{"input": "egfr", "lt": 60}]},
+        {"status": "정상A", "severity": "normal"}
+      ]
+    },
+    "hemoglobin": {
+      "item": "혈색소 (헤모글로빈)",
+      "inputs": ["hemoglobin"],
+      "unit": "g/dL",
+      "reference": "남 13.0~16.5 / 여 12.0~15.5",
+      "bands": [
+        {"status": "질환의심(빈혈)", "severity": "high", "recommend": ["내과", "혈액내과"],
+         "any": [{"input": "hemoglobin", "lt": 12.0}]},
+        {"status": "정상B(경계)", "severity": "warning", "recommend": ["내과"],
+         "any": [{"input": "hemoglobin", "lt": 13.0}]},
+        {"status": "정상A", "severity": "normal"}
+      ],
+      "by_gender": {
+        "male": {"reference": "13.0~16.5(남)"},
+        "female": {
+          "reference": "12.0~15.5(여)",
+          "bands": [
+            {"status": "질환의심(빈혈)", "severity": "high", "recommend": ["내과", "혈액내과"],
+             "any": [{"input": "hemoglobin", "lt": 10.0}]},
+            {"status": "정상B(경계)", "severity": "warning", "recommend": ["내과"],
+             "any": [{"input": "hemoglobin", "lt": 12.0}]},
+            {"status": "정상A", "severity": "normal"}
+          ]
+        }
+      }
+    },
+    "bmi": {
+      "item": "체질량지수 (BMI)",
+      "inputs": ["bmi"],
+      "unit": "kg/m2",
+      "reference": "18.5 ~ 24.9",
+      "bands": [
+        {"status": "고도비만", "severity": "high", "recommend": ["가정의학과"],
+         "any": [{"input": "bmi", "gte": 30.0}]},
+        {"status": "과체중/비만전단계", "severity": "warning", "recommend": ["가정의학과"],
+         "any": [{"input": "bmi", "gte": 25.0}]},
+        {"status": "저체중", "severity": "warning", "recommend": ["가정의학과"],
+         "any": [{"input": "bmi", "lt": 18.5}]},
+        {"status": "정상", "severity": "normal"}
+      ]
+    }
+  }
+}
