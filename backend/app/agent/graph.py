@@ -23,6 +23,7 @@ from app.agent.tools import (
 )
 from app.config import openai_model
 from app.services.ocr_masking import extract_health_metrics
+from app.services.kdca_rag import retrieve_kdca_sources
 
 INTENTS = ("analyze", "summarize", "policy_search", "hospital_recommend", "export_report", "chat")
 
@@ -217,7 +218,23 @@ def rag_evidence_node(state: MedihanState) -> Dict[str, Any]:
     nodes.append("rag_evidence_node")
 
     return {
-        "rag_sources": (kcd_sources + searched)[:12],
+        "rag_sources": (
+            retrieve_kdca_sources(
+                message=msg,
+                matched_conditions=[
+                    str(c.get("name", ""))
+                    for c in lookup["codes"]
+                ],
+                abnormal_metrics=abnormal_items,
+                glossary_terms=[
+                    str(g.get("term", ""))
+                    for g in glossary
+                ],
+                limit=2,
+            )
+            + kcd_sources
+            + searched
+        )[:12],
         "kcd_codes": lookup["codes"],
         "unmatched_codes": lookup["unmatched_codes"],
         "glossary_hits": glossary,
@@ -366,9 +383,30 @@ def _build_context_block(state: MedihanState) -> Dict[str, Any]:
             {"title": d.get("title"), "content": d.get("content")} for d in rag_sources if d.get("category") == "문서안내"
         ],
         "medical_references": [
-            {"title": d.get("title"), "source": d.get("source"), "content": d.get("content")}
+            {
+                "title": d.get("title"),
+                "source": d.get("source"),
+                "content": d.get("content"),
+                "url": d.get("url", ""),
+            }
             for d in rag_sources
-            if d.get("source") != "KCD-9 상병마스터" and d.get("category") != "문서안내"
+            if (
+                d.get("source") != "KCD-9 상병마스터"
+                and d.get("category") != "문서안내"
+                and str(d.get("content") or "").strip()
+            )
+        ],
+        "official_links": [
+            {
+                "title": d.get("title"),
+                "source": d.get("source"),
+                "url": d.get("url"),
+            }
+            for d in rag_sources
+            if (
+                d.get("provider") == "kdca"
+                and d.get("url")
+            )
         ],
         "policy_references": policy_results or None,
         "panel_action": "추천 병원 목록 준비 완료" if state.get("needs_hospital") else ("보고서 파일 생성 완료" if state.get("needs_report") else None),

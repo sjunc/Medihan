@@ -12,6 +12,10 @@ from app.services.document_facts import compute_document_facts
 from app.services.glossary_lookup import lookup_glossary
 from app.services.health_criteria import evaluate_metrics
 from app.services.kcd_lookup import lookup_kcd_codes
+from app.services.hospital_search import (
+    HospitalSearchError,
+    search_hospitals,
+)
 from app.services.rag_service import RAG_SERVICE
 from app.services.report_exporter import generate_reports_bundle
 
@@ -80,37 +84,35 @@ def search_public_health_policy_tool(query: str) -> str:
 
 
 @tool
-def recommend_specialist_hospitals_tool(departments_csv: str, location: str) -> str:
-    """진료과와 지역으로 병원을 웹 검색합니다. 검색 결과만 돌려주며 임의의 병원 정보를 만들지 않습니다."""
-    depts = [d.strip() for d in departments_csv.split(",") if d.strip()]
-    location = (location or "").strip()
-    if not depts or not location:
-        missing = "진료 지역을 입력한 뒤 검색해 주세요." if depts else "서류에서 권장 진료과를 확인하지 못했습니다. 담당 의사에게 진료과를 문의해 주세요."
-        return json.dumps(
-            {"location": location, "recommended_departments": depts, "hospitals": [], "notice": missing},
-            ensure_ascii=False,
+def recommend_specialist_hospitals_tool(
+    departments_csv: str,
+    location: str,
+) -> str:
+    """카카오 로컬 API에서 해당 지역의 의료기관을 조회한다."""
+    departments = [
+        dept.strip()
+        for dept in departments_csv.split(",")
+        if dept.strip()
+    ]
+
+    try:
+        result = search_hospitals(
+            departments=departments,
+            location=location,
+            limit=6,
         )
 
-    hospitals: List[Dict[str, str]] = []
-    seen_urls = set()
-    for dept in depts[:2]:
-        for hit in _run_web_search(f"{location} {dept} 병원", max_results=4):
-            url = hit.get("url", "")
-            if not hit.get("title") or url in seen_urls:
-                continue
-            seen_urls.add(url)
-            hospitals.append(
-                {
-                    "name": hit["title"][:60],
-                    "department": dept,
-                    "address": location,
-                    "reason": hit.get("snippet", "")[:140],
-                    "url": url,
-                }
-            )
-    notice = "" if hospitals else "검색 결과를 가져오지 못했습니다. 잠시 후 다시 시도해 주세요."
+    except HospitalSearchError as exc:
+        result = {
+            "location": location,
+            "recommended_departments": departments,
+            "hospitals": [],
+            "notice": str(exc),
+            "provider": "kakao_local",
+        }
+
     return json.dumps(
-        {"location": location, "recommended_departments": depts, "hospitals": hospitals[:6], "notice": notice},
+        result,
         ensure_ascii=False,
     )
 

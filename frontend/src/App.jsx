@@ -32,6 +32,10 @@ import {
   ZoomIn,
 } from 'lucide-react'
 import SimpleMarkdown from './components/SimpleMarkdown'
+import SecureDocumentUpload from './components/SecureDocumentUpload'
+import DocumentResultViewer from './components/DocumentResultViewer'
+
+import HospitalFinder from './components/HospitalFinder'
 
 const METRIC_LABELS = {
   systolic_bp: '수축기 혈압',
@@ -65,9 +69,10 @@ export default function App() {
     mask_contact: true,
   })
   const [preprocessResult, setPreprocessResult] = useState(null)
-  const [viewMode, setViewMode] = useState('masked')
-  const [preprocessing, setPreprocessing] = useState(false)
-  const [zoomImageOpen, setZoomImageOpen] = useState(false)
+const [viewMode, setViewMode] = useState('masked')
+const [preprocessing, setPreprocessing] = useState(false)
+const [zoomImageOpen, setZoomImageOpen] = useState(false)
+const [remaskRequestToken, setRemaskRequestToken] = useState(0)
 
   // 채팅 상태
   const [messages, setMessages] = useState([
@@ -102,7 +107,6 @@ export default function App() {
   const [hospitalNotice, setHospitalNotice] = useState('')
   const [reportFiles, setReportFiles] = useState({})
   const [exporting, setExporting] = useState(false)
-  const [hospitalLoading, setHospitalLoading] = useState(false)
 
   const [errorBanner, setErrorBanner] = useState('')
   const fileInputRef = useRef(null)
@@ -180,20 +184,19 @@ export default function App() {
     }
   }
 
-  function handleFileChange(e) {
-    const file = e.target.files?.[0]
+  function handleMaskedFile(file) {
     if (!file) return
+    // 원본이 아니라 사용자가 마스킹을 확정한 File만 저장한다.
     setUploadedFile(file)
+    setPreprocessResult(null)
     setViewMode('masked')
-    runPreprocess({ file, options: maskOptions })
-  }
-
-  function handleDrop(e) {
-    e.preventDefault()
-    const file = e.dataTransfer.files?.[0]
-    if (!file) return
-    setUploadedFile(file)
-    setViewMode('masked')
+    setLatestEvaluations([])
+    setLatestRagSources([])
+    setLatestSummary('')
+    setRecommendedDepts([])
+    setHospitals([])
+    setHospitalNotice('')
+    setReportFiles({})
     runPreprocess({ file, options: maskOptions })
   }
 
@@ -312,31 +315,6 @@ export default function App() {
       setErrorBanner(err.message)
     } finally {
       setExporting(false)
-    }
-  }
-
-  async function handleRefreshHospitals(nextLocation) {
-    setLocation(nextLocation)
-    if (!nextLocation.trim() || recommendedDepts.length === 0) return
-    setHospitalLoading(true)
-    try {
-      const res = await fetch('/api/hospitals', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          departments: recommendedDepts,
-          location: nextLocation,
-        }),
-      })
-      if (res.ok) {
-        const data = await res.json()
-        setHospitals(data.hospitals || [])
-        setHospitalNotice(data.notice || '')
-      }
-    } catch {
-      // ignore
-    } finally {
-      setHospitalLoading(false)
     }
   }
 
@@ -459,26 +437,14 @@ export default function App() {
           </div>
 
           <div className="flex-1 overflow-y-auto p-4 space-y-4">
-            {/* 파일 업로드 드롭존 */}
-            <div
-              onDragOver={(e) => e.preventDefault()}
-              onDrop={handleDrop}
-              onClick={() => fileInputRef.current?.click()}
-              className="border-2 border-dashed border-slate-300 hover:border-sky-500 hover:bg-sky-50/40 rounded-xl p-4 text-center cursor-pointer transition space-y-1.5"
-            >
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept=".pdf,.png,.jpg,.jpeg,.webp"
-                onChange={handleFileChange}
-                className="hidden"
-              />
-              <Upload className="w-6 h-6 text-sky-700 mx-auto" />
-              <div className="text-xs font-semibold text-slate-800">
-                {uploadedFile ? uploadedFile.name : '진단서·검진 결과지 (PDF · 이미지) 선택'}
-              </div>
-              <p className="text-[11px] text-slate-500">파일을 끌어다 놓거나 클릭해 업로드하세요</p>
-            </div>
+                  {/* 파일 업로드: 브라우저에서 수동 마스킹 확정 후에만 서버로 전송 */}
+            <SecureDocumentUpload
+              inputRef={fileInputRef}
+              uploadedFileName={uploadedFile?.name}
+              onFileReady={handleMaskedFile}
+              reopenRequestToken={remaskRequestToken}
+              processing={preprocessing}
+            />
 
             {/* 개인정보 마스킹 체크박스 */}
             <div className="bg-slate-50 rounded-xl p-3 border border-slate-200 space-y-2">
@@ -509,62 +475,19 @@ export default function App() {
               </div>
             </div>
 
-            {/* 이미지 비교 프리뷰 */}
-            <div className="border border-slate-200 rounded-xl overflow-hidden bg-slate-50">
-              <div className="bg-white px-2.5 py-2 border-b border-slate-200 flex items-center justify-between">
-                <div className="flex items-center gap-1 bg-slate-100 p-0.5 rounded-lg">
-                  <button
-                    type="button"
-                    onClick={() => setViewMode('masked')}
-                    className={`px-2.5 py-1 rounded-md text-[11px] font-semibold transition ${
-                      viewMode === 'masked' ? 'bg-slate-900 text-white' : 'text-slate-600'
-                    }`}
-                  >
-                    마스킹 화면
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setViewMode('original')}
-                    className={`px-2.5 py-1 rounded-md text-[11px] font-semibold transition ${
-                      viewMode === 'original' ? 'bg-slate-700 text-white' : 'text-slate-600'
-                    }`}
-                  >
-                    원본 화면
-                  </button>
-                </div>
-                {activeImageSrc && (
-                  <button
-                    type="button"
-                    onClick={() => setZoomImageOpen(true)}
-                    className="p-1 text-slate-500 hover:text-sky-700 rounded"
-                    title="크게 보기"
-                  >
-                    <ZoomIn className="w-4 h-4" />
-                  </button>
-                )}
-              </div>
-
-              <div className="min-h-[210px] flex items-center justify-center p-2">
-                {preprocessing ? (
-                  <div className="flex flex-col items-center gap-2 py-10 text-sky-700">
-                    <Loader2 className="w-6 h-6 animate-spin" />
-                    <span className="text-xs font-medium">문서를 읽고 개인정보를 가리는 중입니다...</span>
-                  </div>
-                ) : activeImageSrc ? (
-                  <img
-                    src={activeImageSrc}
-                    alt="업로드된 의료 서류"
-                    onClick={() => setZoomImageOpen(true)}
-                    className="w-full max-h-[280px] object-contain rounded cursor-zoom-in bg-white shadow-xs"
-                  />
-                ) : (
-                  <div className="text-center py-10 px-4 space-y-1.5">
-                    <Eye className="w-7 h-7 text-slate-300 mx-auto" />
-                    <p className="text-xs text-slate-400">결과지를 올리면 가림 처리된 화면을 확인할 수 있습니다.</p>
-                  </div>
-                )}
-              </div>
-            </div>
+            {/* 이미지 비교 프리뷰: 다중 페이지 지원 */}
+            <DocumentResultViewer
+              result={preprocessResult}
+              loading={preprocessing}
+              viewMode={viewMode}
+              onChangeViewMode={setViewMode}
+              zoomOpen={zoomImageOpen}
+              onChangeZoomOpen={setZoomImageOpen}
+              fallbackImageSrc={activeImageSrc}
+              onRemask={() => {
+                setRemaskRequestToken((value) => value + 1)
+              }}
+            />
 
             {/* 인식된 건강검진 수치 */}
             {preprocessResult && (
@@ -729,12 +652,42 @@ export default function App() {
                         {openRefMsgId === msg.id && (
                           <div className="mt-2 space-y-2">
                             {msg.rag_sources.map((src) => (
-                              <div key={src.id} className="bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-xs">
-                                <div className="font-bold text-slate-800">{src.title}</div>
-                                <div className="text-[10.5px] text-slate-500 mb-1">출처: {src.source}</div>
-                                <p className="text-slate-700 whitespace-pre-line leading-relaxed text-[11.5px]">
-                                  {src.content}
-                                </p>
+                              <div
+                                key={src.id}
+                                className="bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-xs"
+                              >
+                                <div className="font-bold text-slate-800">
+                                  {src.title}
+                                </div>
+
+                                <div className="text-[10.5px] text-slate-500 mb-1">
+                                  출처: {src.source}
+                                </div>
+
+                                {src.content ? (
+                                  <p className="text-slate-700 whitespace-pre-line leading-relaxed text-[11.5px]">
+                                    {src.content}
+                                  </p>
+                                ) : (
+                                  src.provider === 'kdca' && (
+                                    <p className="text-[11px] text-slate-500">
+                                      공식 건강정보 링크입니다. 본문은 AI 답변의 근거로 사용하지 않았습니다.
+                                    </p>
+                                  )
+                                )}
+
+                                {src.provider === 'kdca' &&
+                                  src.url?.startsWith('https://health.kdca.go.kr/') && (
+                                    <a
+                                      href={src.url}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="mt-2 inline-flex items-center gap-1 rounded-md border border-sky-200 bg-white px-2.5 py-1.5 text-[11px] font-semibold text-sky-700 hover:bg-sky-50 hover:text-sky-900"
+                                    >
+                                      질병관리청 공식 원문 보기
+                                      <span aria-hidden="true">↗</span>
+                                    </a>
+                                  )}
                               </div>
                             ))}
                           </div>
@@ -1007,84 +960,16 @@ export default function App() {
                     </div>
                   )}
                 </>
-              ) : (
-                <>
-                  <div className="space-y-2 bg-slate-50 p-3 rounded-xl border border-slate-200">
-                    <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
-                      <MapPin className="w-3.5 h-3.5 text-sky-700" />
-                      <span>진료 지역 입력</span>
-                    </label>
-                    <div className="flex gap-2">
-                      <input
-                        type="text"
-                        value={location}
-                        onChange={(e) => setLocation(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') handleRefreshHospitals(location)
-                        }}
-                        placeholder="예: 서울 종로구, 부산 해운대구"
-                        className="flex-1 text-xs bg-white border border-slate-200 rounded-lg px-2.5 py-2 outline-none"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => handleRefreshHospitals(location)}
-                        className="px-3 py-2 rounded-lg bg-sky-700 text-white text-xs font-semibold hover:bg-sky-800"
-                      >
-                        검색
-                      </button>
-                    </div>
-                    <div className="flex flex-wrap gap-1 pt-1">
-                      <span className="text-[11px] text-slate-500">권장 진료과:</span>
-                      {recommendedDepts.length === 0 && (
-                        <span className="text-[11px] text-slate-500">서류 분석 후 표시됩니다</span>
-                      )}
-                      {recommendedDepts.map((dept) => (
-                        <span
-                          key={dept}
-                          className="text-[11px] font-semibold bg-sky-100 text-sky-800 px-2 py-0.5 rounded"
-                        >
-                          {dept}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-
-                  {hospitalLoading ? (
-                    <div className="py-8 flex items-center justify-center gap-2 text-xs text-sky-700">
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      <span>추천 병원을 찾고 있습니다...</span>
-                    </div>
-                  ) : hospitals.length === 0 ? (
-                    <div className="space-y-2">
-                      {hospitalNotice && <p className="text-[11px] text-slate-600">{hospitalNotice}</p>}
-                      <button
-                        type="button"
-                        disabled={!location.trim() || recommendedDepts.length === 0}
-                        onClick={() => handleRefreshHospitals(location)}
-                        className="w-full py-2.5 rounded-xl bg-sky-700 text-white text-xs font-bold disabled:opacity-40"
-                      >
-                        {recommendedDepts.length === 0 ? '서류 분석 후 병원을 검색할 수 있습니다' : '병원 검색하기'}
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="space-y-2.5">
-                      {hospitals.map((h, i) => (
-                        <a
-                          key={i}
-                          href={h.url || undefined}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="block p-3 rounded-xl border border-slate-200 bg-white shadow-xs space-y-1.5 hover:bg-slate-50 transition"
-                        >
-                          <div className="font-bold text-xs text-slate-900">{h.name}</div>
-                          <div className="text-[11px] font-semibold text-sky-700">{h.department}</div>
-                          {h.reason && <p className="text-[11px] text-slate-700 bg-slate-50 p-2 rounded-lg line-clamp-3">{h.reason}</p>}
-                        </a>
-                      ))}
-                      <p className="text-[11px] text-slate-500">웹 검색 결과입니다. 방문 전 병원에 진료 여부를 확인해 주세요.</p>
-                    </div>
-                  )}
-                </>
+                            ) : (
+                <HospitalFinder
+                  departments={recommendedDepts}
+                  location={location}
+                  onLocationChange={setLocation}
+                  hospitals={hospitals}
+                  onHospitalsChange={setHospitals}
+                  notice={hospitalNotice}
+                  onNoticeChange={setHospitalNotice}
+                />
               )}
             </div>
           </aside>

@@ -339,25 +339,41 @@ def generate_image_card_report(payload: Dict[str, Any], out_path: Path) -> Path:
 
 
 def generate_reports_bundle(payload: Dict[str, Any], formats: List[str] | None = None) -> Dict[str, Dict[str, str]]:
-    """요청된 포맷(docx, pdf, png)의 보고서를 모두 생성하고 파일 메타데이터를 반환한다."""
+    """고유 파일명·만료되는 임시 다운로드 URL을 사용해 보고서를 생성한다."""
+    from uuid import uuid4
+    from app.services.download_links import cleanup_report_files, sign_download_url
+
     REPORTS_DIR.mkdir(parents=True, exist_ok=True)
-    target_formats = formats or ["docx", "pdf", "png"]
-    stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    cleanup_report_files(REPORTS_DIR)
+    target_formats = formats if formats is not None else ["docx", "pdf", "png"]
+    stamp = datetime.now().strftime("%Y%m%d_%H%M%S") + "_" + uuid4().hex[:8]
 
     results: Dict[str, Dict[str, str]] = {}
     if "docx" in target_formats:
         name = f"medihan_report_{stamp}.docx"
         generate_word_report(payload, REPORTS_DIR / name)
-        results["docx"] = {"filename": name, "label": "Word 보고서 (.docx)", "url": f"/api/download/{name}"}
+        results["docx"] = {
+            "filename": name,
+            "label": "Word 보고서 (.docx)",
+            "url": sign_download_url(name),
+        }
 
     if "pdf" in target_formats:
         name = f"medihan_report_{stamp}.pdf"
         generate_pdf_report(payload, REPORTS_DIR / name)
-        results["pdf"] = {"filename": name, "label": "PDF 결과지 (.pdf)", "url": f"/api/download/{name}"}
+        results["pdf"] = {
+            "filename": name,
+            "label": "PDF 결과지 (.pdf)",
+            "url": sign_download_url(name),
+        }
 
     if "png" in target_formats:
         name = f"medihan_report_{stamp}.png"
         generate_image_card_report(payload, REPORTS_DIR / name)
-        results["png"] = {"filename": name, "label": "요약 카드 이미지 (.png)", "url": f"/api/download/{name}"}
+        results["png"] = {
+            "filename": name,
+            "label": "요약 카드 이미지 (.png)",
+            "url": sign_download_url(name),
+        }
 
     return results
